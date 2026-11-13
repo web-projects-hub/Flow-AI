@@ -20,7 +20,7 @@
   <div class="side-title">فضای کار</div>
   <button class="side-btn active" id="chatNav">✦　گفت‌وگوی هوشمند</button>
   <button class="side-btn" id="settingsNav">⚙　تنظیمات پیشرفته</button>
-  <div class="side-note">🌿 Flow AI برای پاسخ‌گویی، ایده‌پردازی، نوشتن، برنامه‌نویسی، یادگیری و گفت‌وگو طراحی شده است.<br><br>سهمیه روزانه: ۲۰ پیام برای هر مرورگر.</div>
+  <div class="side-note">🌿 Flow AI برای پاسخ‌گویی، ایده‌پردازی، نوشتن، برنامه‌نویسی، یادگیری و گفت‌وگو طراحی شده است.<br><br>سهمیه روزانه: ۳۰ پیام برای هر مرورگر.</div>
  </aside>
  <main class="main">
   <header class="topbar">
@@ -44,7 +44,7 @@
   <div class="typing hidden" id="typing">Flow AI در حال فکر کردن است…</div>
   <footer class="composer-wrap">
    <div class="composer"><textarea id="prompt" rows="1" maxlength="12000" placeholder="پیامت را برای Flow AI بنویس…"></textarea><button class="send" id="send" title="ارسال پیام">➤</button></div>
-   <div class="composer-hint"><span>Enter برای ارسال · Shift + Enter برای خط جدید</span><span id="counter">۰ / ۲۰ پیام امروز</span></div>
+   <div class="composer-hint"><span>Enter برای ارسال · Shift + Enter برای خط جدید</span><span id="counter">۰ / ۳۰ پیام امروز</span></div>
   </footer>
  </main>
 </div>
@@ -60,7 +60,7 @@ function load(){try{settings={...settings,...JSON.parse(localStorage.getItem(STO
 function saveSettings(){localStorage.setItem(STORE_KEY,JSON.stringify(settings))}
 function saveHistory(){localStorage.setItem(CHAT_KEY,JSON.stringify(history))}
 function quota(){let q={date:today(),count:0};try{q={...q,...JSON.parse(localStorage.getItem(QUOTA_KEY)||'{}')}}catch(e){}if(q.date!==today())q={date:today(),count:0};return q}
-function updateQuota(){let q=quota(),left=Math.max(0,30-q.count);$('quota').textContent=left.toLocaleString('fa-IR')+' پیام باقی‌مانده';$('counter').textContent=q.count.toLocaleString('fa-IR')+' / ۲۰ پیام امروز';$('send').disabled=busy||left<=0}
+function updateQuota(){let q=quota(),left=Math.max(0,30-q.count);$('quota').textContent=left.toLocaleString('fa-IR')+' پیام باقی‌مانده';$('counter').textContent=q.count.toLocaleString('fa-IR')+' / ۳۰ پیام امروز';$('send').disabled=busy||left<=0}
 function toast(s){$('toastRoot').innerHTML='<div class="toast">'+escapeHTML(s)+'</div>';setTimeout(()=>$('toastRoot').innerHTML='',2800)}
 function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function formatText(s){let t=escapeHTML(s);t=t.replace(/```([\s\S]*?)```/g,(_,c)=>'<pre>'+c.trim()+'</pre>');t=t.replace(/`([^`\n]+)`/g,'<code>$1</code>');t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');t=t.replace(/\n/g,'<br>');return t}
