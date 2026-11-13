@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -51,38 +52,525 @@
 <div id="modalRoot"></div><div id="toastRoot"></div>
 <script>
 (()=>{'use strict';
+
 const $=id=>document.getElementById(id);
+
+/* نگهداری نسخه اولیه صفحه خوشامدگویی برای رندرهای بعدی */
+const welcomeHTML=$('welcome').outerHTML;
+
 const BASE_URL='https://api.gapgpt.app/v1';
 const STORE_KEY='flow_ai_settings_v1', CHAT_KEY='flow_ai_chat_v1', QUOTA_KEY='flow_ai_quota_v1';
+
 let settings={apiKey:'',model:'gpt-4o-mini'},history=[],busy=false;
-const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
-function load(){try{settings={...settings,...JSON.parse(localStorage.getItem(STORE_KEY)||'{}')}}catch(e){}try{history=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]')}catch(e){history=[]}}
-function saveSettings(){localStorage.setItem(STORE_KEY,JSON.stringify(settings))}
-function saveHistory(){localStorage.setItem(CHAT_KEY,JSON.stringify(history))}
-function quota(){let q={date:today(),count:0};try{q={...q,...JSON.parse(localStorage.getItem(QUOTA_KEY)||'{}')}}catch(e){}if(q.date!==today())q={date:today(),count:0};return q}
-function updateQuota(){let q=quota(),left=Math.max(0,30-q.count);$('quota').textContent=left.toLocaleString('fa-IR')+' پیام باقی‌مانده';$('counter').textContent=q.count.toLocaleString('fa-IR')+' / ۳۰ پیام امروز';$('send').disabled=busy||left<=0}
-function toast(s){$('toastRoot').innerHTML='<div class="toast">'+escapeHTML(s)+'</div>';setTimeout(()=>$('toastRoot').innerHTML='',2800)}
-function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function formatText(s){let t=escapeHTML(s);t=t.replace(/```([\s\S]*?)```/g,(_,c)=>'<pre>'+c.trim()+'</pre>');t=t.replace(/`([^`\n]+)`/g,'<code>$1</code>');t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');t=t.replace(/\n/g,'<br>');return t}
-function scrollBottom(){$('messages').scrollTop=$('messages').scrollHeight}
-function renderMessage(item,index){const el=document.createElement('article');el.className='msg '+(item.role==='user'?'user':'assistant');el.innerHTML='<div class="who">'+(item.role==='user'?'شما':'✦ Flow AI')+'</div><div class="content">'+formatText(item.content)+'</div>'+(item.role==='assistant'?'<div class="tools"><button data-copy="'+index+'">کپی پاسخ</button></div>':'');return el}
-function render(){const box=$('messages');box.innerHTML='';if(!history.length){box.innerHTML=$('welcome').outerHTML;box.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{$('prompt').value=b.dataset.prompt;sendMessage()});return}history.forEach((m,i)=>box.appendChild(renderMessage(m,i)));box.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{let m=history[Number(b.dataset.copy)];navigator.clipboard?.writeText(m.content).then(()=>toast('پاسخ کپی شد.')).catch(()=>toast('امکان کپی خودکار وجود ندارد.'))});scrollBottom()}
-function setConnection(ok,text){$('statusDot').classList.toggle('ok',!!ok);$('statusText').textContent=text}
-function openSettings(){ $('modalRoot').innerHTML=`<div class="modalback" id="modalBack"><div class="modal card"><div class="modalhead"><h3>⚙ تنظیمات پیشرفته</h3><button class="close" id="closeSettings">×</button></div><p class="muted tiny">اطلاعات اتصال Flow AI را در این بخش وارد کن.</p><div class="field"><label>Base URL</label><input value="${BASE_URL}" readonly></div><div class="field"><label>کلید API</label><input id="apiKeyInput" type="password" autocomplete="off" placeholder="کلید API خود را وارد کن" value="${escapeHTML(settings.apiKey)}"><small>کلید در فایل HTML قرار نمی‌گیرد و فقط در حافظه محلی همین مرورگر ذخیره می‌شود. آن را با دیگران به اشتراک نگذار.</small></div><div class="field"><label>شناسه مدل (Model)</label><input id="modelInput" dir="ltr" value="${escapeHTML(settings.model)}" placeholder="مثلاً gpt-4o-mini"><small>شناسه مدل باید در حساب ارائه‌دهنده API شما فعال باشد.</small></div><div class="notice warn">نکته امنیتی: در سایت استاتیک، کلید واردشده از سمت مرورگر برای همان کاربر قابل مشاهده است. برای محافظت واقعی از کلید در سایت عمومی، باید درخواست‌ها از طریق سرور اختصاصی و امن ارسال شوند.</div><div class="modal-actions"><button class="btn green" id="testConnection">تست اتصال</button><button class="btn" id="saveSettings">ذخیره تنظیمات</button></div><div class="connection-result" id="testResult"></div></div></div>`;
- $('closeSettings').onclick=closeSettings;$('saveSettings').onclick=()=>{settings.apiKey=$('apiKeyInput').value.trim();settings.model=$('modelInput').value.trim()||'gpt-4o-mini';saveSettings();closeSettings();setConnection(!!settings.apiKey,settings.apiKey?'کلید API ذخیره شده':'نیازمند تنظیم کلید API');toast('تنظیمات ذخیره شد.')};
- $('testConnection').onclick=async()=>{let key=$('apiKeyInput').value.trim(),model=$('modelInput').value.trim()||'gpt-4o-mini',b=$('testConnection'),out=$('testResult');if(!key){out.textContent='ابتدا کلید API را وارد کن.';out.style.color='#ff9eae';return}b.disabled=true;b.textContent='در حال بررسی…';out.textContent='در حال ارسال درخواست آزمایشی…';out.style.color='#c8e4df';try{let r=await fetch(BASE_URL+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify({model,messages:[{role:'user',content:'Reply with only: OK'}],max_tokens:8,temperature:0})});let data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error?.message||data.message||('HTTP '+r.status));if(!data.choices?.[0]?.message?.content)throw new Error('پاسخ API در قالب مورد انتظار نبود.');out.textContent='✓ اتصال برقرار شد؛ پاسخ آزمایشی دریافت شد.';out.style.color='#61df9b';setConnection(true,'اتصال برقرار شد')}catch(e){out.textContent='✕ اتصال برقرار نشد: '+e.message;out.style.color='#ff9eae';setConnection(false,'اتصال برقرار نشد')}finally{b.disabled=false;b.textContent='تست اتصال'}};
+
+const today=()=>{
+ const d=new Date();
+ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+};
+
+/* مدیریت مطمئن اطلاعات ذخیره‌شده */
+function load(){
+ try{
+  const saved=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');
+  if(saved&&typeof saved==='object'&&!Array.isArray(saved)){
+   settings={...settings,...saved};
+  }
+ }catch(e){
+  settings={apiKey:'',model:'gpt-4o-mini'};
+ }
+
+ if(typeof settings.apiKey!=='string')settings.apiKey='';
+ if(typeof settings.model!=='string'||!settings.model.trim())settings.model='gpt-4o-mini';
+
+ try{
+  const savedHistory=JSON.parse(localStorage.getItem(CHAT_KEY)||'[]');
+  history=Array.isArray(savedHistory)
+   ?savedHistory.filter(m=>
+     m&&typeof m==='object'&&
+     ['user','assistant'].includes(m.role)&&
+     typeof m.content==='string'
+    )
+   :[];
+ }catch(e){
+  history=[];
+ }
 }
-function closeSettings(){$('modalRoot').innerHTML=''}
-async function sendMessage(){let text=$('prompt').value.trim();if(!text||busy)return;if(!settings.apiKey){toast('برای شروع، ابتدا کلید API را در تنظیمات پیشرفته وارد کن.');openSettings();return}let q=quota();if(q.count>=30){toast('سهمیه ۳۰ پیام امروز تمام شده است.');updateQuota();return}q.count++;localStorage.setItem(QUOTA_KEY,JSON.stringify(q));history.push({role:'user',content:text});$('prompt').value='';$('prompt').style.height='auto';saveHistory();render();busy=true;$('typing').classList.remove('hidden');updateQuota();try{const systemPrompt='تو Flow AI هستی؛ یک دستیار هوش مصنوعی حرفه‌ای، دقیق، خوش‌برخورد و چندمنظوره. به زبان کاربر پاسخ بده. پاسخ‌ها را روشن، کاربردی، منظم و متناسب با سؤال بنویس. در صورت مناسب بودن از ایموجی‌های مرتبط و به‌اندازه استفاده کن، اما زیاده‌روی نکن. برای موضوعات پیچیده توضیح مرحله‌ای بده و اگر اطلاعاتی را نمی‌دانی صادقانه بیان کن. در کدنویسی، کد صحیح و قابل استفاده ارائه بده و محدودیت‌ها را شفاف بگو.';
-let messages=[{role:'system',content:systemPrompt},...history.slice(-24).map(m=>({role:m.role,content:m.content}))];
-let r=await fetch(BASE_URL+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+settings.apiKey},body:JSON.stringify({model:settings.model||'gpt-4o-mini',messages,temperature:0.75})});
-let data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error?.message||data.message||('HTTP '+r.status));let answer=data.choices?.[0]?.message?.content;if(typeof answer!=='string'||!answer.trim())throw new Error('پاسخ معتبری از سرویس دریافت نشد.');history.push({role:'assistant',content:answer.trim()});saveHistory();setConnection(true,'اتصال برقرار است');
-}catch(e){history.push({role:'assistant',content:'⚠️ در دریافت پاسخ خطایی رخ داد:\n'+e.message+'\n\nکلید API، شناسه مدل و دسترسی سرویس را در تنظیمات پیشرفته بررسی کن.'});saveHistory();setConnection(false,'خطا در ارتباط با سرویس')}
-finally{busy=false;$('typing').classList.add('hidden');updateQuota();render()}}
-function newChat(){if(busy)return;history=[];saveHistory();render();$('prompt').focus()}
-$('send').onclick=sendMessage;$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}});$('prompt').addEventListener('input',()=>{$('prompt').style.height='auto';$('prompt').style.height=Math.min($('prompt').scrollHeight,170)+'px'});
-$('newChat').onclick=newChat;$('newChatTop').onclick=newChat;$('settingsNav').onclick=openSettings;$('mobileSettings').onclick=openSettings;$('chatNav').onclick=()=>toast('شما در فضای گفت‌وگوی هوشمند هستید.');
-load();render();updateQuota();setConnection(!!settings.apiKey,settings.apiKey?'کلید API ذخیره شده؛ آماده اتصال':'نیازمند تنظیم کلید API');
+
+function saveSettings(){
+ try{
+  localStorage.setItem(STORE_KEY,JSON.stringify(settings));
+ }catch(e){
+  toast('ذخیره تنظیمات در مرورگر امکان‌پذیر نیست.');
+ }
+}
+
+function saveHistory(){
+ try{
+  localStorage.setItem(CHAT_KEY,JSON.stringify(history));
+ }catch(e){
+  toast('ذخیره تاریخچه گفتگو امکان‌پذیر نیست.');
+ }
+}
+
+/* مدیریت سهمیه روزانه */
+function quota(){
+ let q={date:today(),count:0};
+
+ try{
+  const saved=JSON.parse(localStorage.getItem(QUOTA_KEY)||'{}');
+
+  if(saved&&typeof saved==='object'&&!Array.isArray(saved)){
+   q={...q,...saved};
+  }
+ }catch(e){}
+
+ if(q.date!==today()){
+  q={date:today(),count:0};
+ }
+
+ q.count=Number.isFinite(Number(q.count))
+  ?Math.max(0,Math.floor(Number(q.count)))
+  :0;
+
+ return q;
+}
+
+function updateQuota(){
+ let q=quota();
+ let left=Math.max(0,30-q.count);
+
+ $('quota').textContent=left.toLocaleString('fa-IR')+' پیام باقی‌مانده';
+ $('counter').textContent=q.count.toLocaleString('fa-IR')+' / ۳۰ پیام امروز';
+
+ $('send').disabled=busy||left<=0;
+}
+
+function toast(s){
+ $('toastRoot').innerHTML='<div class="toast">'+escapeHTML(s)+'</div>';
+
+ setTimeout(()=>{
+  $('toastRoot').innerHTML='';
+ },2800);
+}
+
+function escapeHTML(s){
+ return String(s??'').replace(/[&<>"']/g,c=>({
+  '&':'&amp;',
+  '<':'&lt;',
+  '>':'&gt;',
+  '"':'&quot;',
+  "'":'&#39;'
+ }[c]));
+}
+
+function formatText(s){
+ let t=escapeHTML(s);
+
+ t=t.replace(/```([\s\S]*?)```/g,(_,c)=>'<pre>'+c.trim()+'</pre>');
+ t=t.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+ t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+ t=t.replace(/\n/g,'<br>');
+
+ return t;
+}
+
+function scrollBottom(){
+ $('messages').scrollTop=$('messages').scrollHeight;
+}
+
+function renderMessage(item,index){
+ const el=document.createElement('article');
+
+ el.className='msg '+(item.role==='user'?'user':'assistant');
+
+ el.innerHTML=
+  '<div class="who">'+
+  (item.role==='user'?'شما':'✦ Flow AI')+
+  '</div>'+
+  '<div class="content">'+formatText(item.content)+'</div>'+
+  (item.role==='assistant'
+   ?'<div class="tools"><button data-copy="'+index+'">کپی پاسخ</button></div>'
+   :''
+  );
+
+ return el;
+}
+
+/* اصلاح اصلی: نمایش صحیح صفحه خوشامدگویی */
+function render(){
+ const box=$('messages');
+
+ box.innerHTML='';
+
+ if(!history.length){
+
+  box.innerHTML=welcomeHTML;
+
+  box.querySelectorAll('[data-prompt]').forEach(b=>{
+   b.onclick=()=>{
+    $('prompt').value=b.dataset.prompt;
+    sendMessage();
+   };
+  });
+
+  return;
+ }
+
+ history.forEach((m,i)=>{
+  box.appendChild(renderMessage(m,i));
+ });
+
+ box.querySelectorAll('[data-copy]').forEach(b=>{
+  b.onclick=async()=>{
+   const m=history[Number(b.dataset.copy)];
+
+   if(!m)return;
+
+   try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+     await navigator.clipboard.writeText(m.content);
+    }else{
+     const temp=document.createElement('textarea');
+     temp.value=m.content;
+     temp.style.position='fixed';
+     temp.style.opacity='0';
+     document.body.appendChild(temp);
+     temp.select();
+
+     const copied=document.execCommand('copy');
+
+     temp.remove();
+
+     if(!copied)throw new Error('Copy failed');
+    }
+
+    toast('پاسخ کپی شد.');
+   }catch(e){
+    toast('امکان کپی خودکار وجود ندارد.');
+   }
+  };
+ });
+
+ scrollBottom();
+}
+
+function setConnection(ok,text){
+ $('statusDot').classList.toggle('ok',!!ok);
+ $('statusText').textContent=text;
+}
+
+function openSettings(){
+
+ $('modalRoot').innerHTML=`
+ <div class="modalback" id="modalBack">
+  <div class="modal card">
+   <div class="modalhead">
+    <h3>⚙ تنظیمات پیشرفته</h3>
+    <button class="close" id="closeSettings">×</button>
+   </div>
+
+   <p class="muted tiny">اطلاعات اتصال Flow AI را در این بخش وارد کن.</p>
+
+   <div class="field">
+    <label>Base URL</label>
+    <input value="${BASE_URL}" readonly>
+   </div>
+
+   <div class="field">
+    <label>کلید API</label>
+    <input id="apiKeyInput" type="password" autocomplete="off" placeholder="کلید API خود را وارد کن" value="${escapeHTML(settings.apiKey)}">
+    <small>کلید در فایل HTML قرار نمی‌گیرد و فقط در حافظه محلی همین مرورگر ذخیره می‌شود. آن را با دیگران به اشتراک نگذار.</small>
+   </div>
+
+   <div class="field">
+    <label>شناسه مدل (Model)</label>
+    <input id="modelInput" dir="ltr" value="${escapeHTML(settings.model)}" placeholder="مثلاً gpt-4o-mini">
+    <small>شناسه مدل باید در حساب ارائه‌دهنده API شما فعال باشد.</small>
+   </div>
+
+   <div class="notice warn">
+    نکته امنیتی: در سایت استاتیک، کلید واردشده از سمت مرورگر برای همان کاربر قابل مشاهده است. برای محافظت واقعی از کلید در سایت عمومی، باید درخواست‌ها از طریق سرور اختصاصی و امن ارسال شوند.
+   </div>
+
+   <div class="modal-actions">
+    <button class="btn green" id="testConnection">تست اتصال</button>
+    <button class="btn" id="saveSettings">ذخیره تنظیمات</button>
+   </div>
+
+   <div class="connection-result" id="testResult"></div>
+  </div>
+ </div>`;
+
+ $('closeSettings').onclick=closeSettings;
+
+ $('modalBack').onclick=e=>{
+  if(e.target.id==='modalBack')closeSettings();
+ };
+
+ $('saveSettings').onclick=()=>{
+  settings.apiKey=$('apiKeyInput').value.trim();
+  settings.model=$('modelInput').value.trim()||'gpt-4o-mini';
+
+  saveSettings();
+
+  closeSettings();
+
+  setConnection(
+   !!settings.apiKey,
+   settings.apiKey?'کلید API ذخیره شده':'نیازمند تنظیم کلید API'
+  );
+
+  toast('تنظیمات ذخیره شد.');
+ };
+
+ $('testConnection').onclick=async()=>{
+  let key=$('apiKeyInput').value.trim();
+  let model=$('modelInput').value.trim()||'gpt-4o-mini';
+
+  let b=$('testConnection');
+  let out=$('testResult');
+
+  if(!key){
+   out.textContent='ابتدا کلید API را وارد کن.';
+   out.style.color='#ff9eae';
+   return;
+  }
+
+  b.disabled=true;
+  b.textContent='در حال بررسی…';
+
+  out.textContent='در حال ارسال درخواست آزمایشی…';
+  out.style.color='#c8e4df';
+
+  try{
+   let r=await fetch(BASE_URL+'/chat/completions',{
+    method:'POST',
+    headers:{
+     'Content-Type':'application/json',
+     'Authorization':'Bearer '+key
+    },
+    body:JSON.stringify({
+     model,
+     messages:[
+      {role:'user',content:'Reply with only: OK'}
+     ],
+     max_tokens:8,
+     temperature:0
+    })
+   });
+
+   let data=await r.json().catch(()=>({}));
+
+   if(!r.ok){
+    throw new Error(
+     data.error?.message||
+     data.message||
+     ('HTTP '+r.status)
+    );
+   }
+
+   if(!data.choices?.[0]?.message?.content){
+    throw new Error('پاسخ API در قالب مورد انتظار نبود.');
+   }
+
+   out.textContent='✓ اتصال برقرار شد؛ پاسخ آزمایشی دریافت شد.';
+   out.style.color='#61df9b';
+
+   setConnection(true,'اتصال برقرار شد');
+
+  }catch(e){
+
+   out.textContent='✕ اتصال برقرار نشد: '+e.message;
+   out.style.color='#ff9eae';
+
+   setConnection(false,'اتصال برقرار نشد');
+
+  }finally{
+   b.disabled=false;
+   b.textContent='تست اتصال';
+  }
+ };
+}
+
+function closeSettings(){
+ $('modalRoot').innerHTML='';
+}
+
+async function sendMessage(){
+
+ let text=$('prompt').value.trim();
+
+ if(!text||busy)return;
+
+ if(!settings.apiKey){
+  toast('برای شروع، ابتدا کلید API را در تنظیمات پیشرفته وارد کن.');
+  openSettings();
+  return;
+ }
+
+ let q=quota();
+
+ if(q.count>=30){
+  toast('سهمیه ۳۰ پیام امروز تمام شده است.');
+  updateQuota();
+  return;
+ }
+
+ q.count++;
+
+ try{
+  localStorage.setItem(QUOTA_KEY,JSON.stringify(q));
+ }catch(e){
+  toast('ذخیره سهمیه روزانه امکان‌پذیر نیست.');
+  return;
+ }
+
+ history.push({
+  role:'user',
+  content:text
+ });
+
+ $('prompt').value='';
+ $('prompt').style.height='auto';
+
+ saveHistory();
+ render();
+
+ busy=true;
+
+ $('typing').classList.remove('hidden');
+
+ updateQuota();
+
+ try{
+
+  const systemPrompt=
+   'تو Flow AI هستی؛ یک دستیار هوش مصنوعی حرفه‌ای، دقیق، خوش‌برخورد و چندمنظوره. به زبان کاربر پاسخ بده. پاسخ‌ها را روشن، کاربردی، منظم و متناسب با سؤال بنویس. در صورت مناسب بودن از ایموجی‌های مرتبط و به‌اندازه استفاده کن، اما زیاده‌روی نکن. برای موضوعات پیچیده توضیح مرحله‌ای بده و اگر اطلاعاتی را نمی‌دانی صادقانه بیان کن. در کدنویسی، کد صحیح و قابل استفاده ارائه بده و محدودیت‌ها را شفاف بگو.';
+
+  let messages=[
+   {role:'system',content:systemPrompt},
+   ...history.slice(-24).map(m=>({
+    role:m.role,
+    content:m.content
+   }))
+  ];
+
+  let r=await fetch(BASE_URL+'/chat/completions',{
+   method:'POST',
+   headers:{
+    'Content-Type':'application/json',
+    'Authorization':'Bearer '+settings.apiKey
+   },
+   body:JSON.stringify({
+    model:settings.model||'gpt-4o-mini',
+    messages,
+    temperature:0.75
+   })
+  });
+
+  let data=await r.json().catch(()=>({}));
+
+  if(!r.ok){
+   throw new Error(
+    data.error?.message||
+    data.message||
+    ('HTTP '+r.status)
+   );
+  }
+
+  let answer=data.choices?.[0]?.message?.content;
+
+  if(typeof answer!=='string'||!answer.trim()){
+   throw new Error('پاسخ معتبری از سرویس دریافت نشد.');
+  }
+
+  history.push({
+   role:'assistant',
+   content:answer.trim()
+  });
+
+  saveHistory();
+
+  setConnection(true,'اتصال برقرار است');
+
+ }catch(e){
+
+  history.push({
+   role:'assistant',
+   content:
+    '⚠️ در دریافت پاسخ خطایی رخ داد:\n'+
+    (e.message||'خطای ناشناخته')+
+    '\n\nکلید API، شناسه مدل و دسترسی سرویس را در تنظیمات پیشرفته بررسی کن.'
+  });
+
+  saveHistory();
+
+  setConnection(false,'خطا در ارتباط با سرویس');
+
+ }finally{
+
+  busy=false;
+
+  $('typing').classList.add('hidden');
+
+  updateQuota();
+
+  render();
+ }
+}
+
+function newChat(){
+
+ if(busy)return;
+
+ history=[];
+
+ saveHistory();
+
+ render();
+
+ $('prompt').focus();
+}
+
+/* رویدادهای اصلی */
+$('send').onclick=sendMessage;
+
+$('prompt').addEventListener('keydown',e=>{
+ if(e.key==='Enter'&&!e.shiftKey){
+  e.preventDefault();
+  sendMessage();
+ }
+});
+
+$('prompt').addEventListener('input',()=>{
+ $('prompt').style.height='auto';
+
+ $('prompt').style.height=
+  Math.min($('prompt').scrollHeight,170)+'px';
+});
+
+$('newChat').onclick=newChat;
+$('newChatTop').onclick=newChat;
+
+$('settingsNav').onclick=openSettings;
+$('mobileSettings').onclick=openSettings;
+
+$('chatNav').onclick=()=>{
+ toast('شما در فضای گفت‌وگوی هوشمند هستید.');
+};
+
+/* راه‌اندازی اولیه */
+load();
+render();
+updateQuota();
+
+setConnection(
+ !!settings.apiKey,
+ settings.apiKey
+  ?'کلید API ذخیره شده؛ آماده اتصال'
+  :'نیازمند تنظیم کلید API'
+);
+
 })();
 </script>
 </body>
