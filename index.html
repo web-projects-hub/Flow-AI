@@ -576,7 +576,7 @@ function newChat(){if(busy)return;createChat(true);$('prompt').focus();}
 
 /* رویدادهای اصلی */
 $('send').onclick=sendMessage;
- $('autoModeToggle').onclick=()=>{autoMode=!autoMode;$('autoModeToggle').textContent=autoMode?'⚡ حالت فعال':'حالت غیرفعال';$('autoModeToggle').classList.toggle('active',autoMode);toast(autoMode?'حالت خودکار فعال شد.':'حالت خودکار غیرفعال شد.');};
+ $('autoModeToggle').onclick=()=>{autoMode=!autoMode;$('autoModeToggle').textContent=autoMode?'🔘 حالت فعال':'حالت غیرفعال';$('autoModeToggle').classList.toggle('active',autoMode);toast(autoMode?'حالت خودکار فعال شد.':'حالت خودکار غیرفعال شد.');};
 
 $('prompt').addEventListener('keydown',e=>{
  if(e.key==='Enter'&&!e.shiftKey){
