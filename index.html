@@ -47,7 +47,9 @@ body{background:radial-gradient(ellipse at 12% 15%,#00fff044,transparent 34%),ra
 @keyframes auroraPulse{0%,100%{filter:drop-shadow(0 0 12px #38e5d455)}50%{filter:drop-shadow(0 0 23px #8b5cf655)}}
 .welcome-logo{animation:auroraPulse 4s ease-in-out infinite}
 @media(max-width:760px){.topbar{background:linear-gradient(90deg,#061e28,#07353a)}}
-.brandmark,.welcome-logo,.send,.btn{filter:drop-shadow(0 0 9px #00f5df33)}\n.auto-mode-btn.active{box-shadow:0 0 18px #00f5df55}\n.composer:focus-within{box-shadow:0 0 0 3px #00f5df22,0 0 24px #00f5df22}\n
+.brandmark,.welcome-logo,.send,.btn{filter:drop-shadow(0 0 9px #00f5df33)}
+.auto-mode-btn.active{box-shadow:0 0 18px #00f5df55}
+.composer:focus-within{box-shadow:0 0 0 3px #00f5df22,0 0 24px #00f5df22}\n
 /* Flow AI mint theme */
 :root{--bg:#061b16;--panel:#0b2921;--panel2:#123b30;--teal:#7dffd1;--teal2:#36e6b0;--red:#36e6b0;--text:#f3fff9;--muted:#a9d6c7;--line:#24634e;--bubble:#123b30;--shadow:0 22px 60px #0008}
 body{background:radial-gradient(ellipse at 12% 15%,#5dffc044,transparent 34%),radial-gradient(ellipse at 80% 4%,#36e6b044,transparent 35%),linear-gradient(135deg,#061b16,#092820 55%,#07352a)}
@@ -117,10 +119,13 @@ const $=id=>document.getElementById(id);
 const welcomeHTML=$('welcome').outerHTML;
 
 const DEFAULT_BASE_URL='https://api.gapgpt.app/v1';
-const AUTO_API_KEY='sk-OKQ8yfu8hUosr6P5FWooZRvtyQscv00i7TSywPblYsVsyb4r';
+const AUTO_API_KEY='PASTE_NEW_API_KEY_HERE'; // پس از تعویض کلید افشاشده، کلید جدید را اینجا وارد کنید
 const STORE_KEY='flow_ai_settings_v1', CHAT_KEY='flow_ai_chat_v1', QUOTA_KEY='flow_ai_quota_v1';
 
 let settings={apiKey:AUTO_API_KEY,model:'gpt-4o-mini',baseURL:DEFAULT_BASE_URL},history=[],busy=false,chats=[],currentChatId=null,autoMode=true;
+const AUTO_MODEL='gpt-4o-mini', AUTO_BASE_URL=DEFAULT_BASE_URL, AUTO_MODE_KEY='flow_ai_auto_mode_v1';
+function activeConfig(){return autoMode?{apiKey:AUTO_API_KEY,model:AUTO_MODEL,baseURL:AUTO_BASE_URL}:{apiKey:settings.apiKey||'',model:settings.model||'gpt-4o-mini',baseURL:settings.baseURL||DEFAULT_BASE_URL};}
+function normalizeBaseURL(url){return String(url||DEFAULT_BASE_URL).trim().replace(/\/+$/,'');}
 
 const today=()=>{
  const d=new Date();
@@ -129,6 +134,7 @@ const today=()=>{
 
 /* مدیریت مطمئن اطلاعات ذخیره‌شده */
 function load(){
+ try{autoMode=localStorage.getItem(AUTO_MODE_KEY)!=='false';}catch(e){autoMode=true;}
  try{
   const saved=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');
   if(saved&&typeof saved==='object'&&!Array.isArray(saved)){
@@ -367,7 +373,7 @@ function openSettings(){
 
  $('saveSettings').onclick=()=>{
   settings.apiKey=$('apiKeyInput').value.trim();
-  settings.baseURL=$('baseURLInput').value.trim().replace(/\\+$/,'')||DEFAULT_BASE_URL;
+  settings.baseURL=normalizeBaseURL($('baseURLInput').value);
   settings.model=$('modelInput').value.trim()||'gpt-4o-mini';
 
   saveSettings();
@@ -376,7 +382,7 @@ function openSettings(){
 
   setConnection(
    !!settings.apiKey,
-   settings.apiKey?'کلید API ذخیره شده':'نیازمند تنظیم کلید API'
+   settings.apiKey?'کلید تنظیم شده؛ اتصال آزمایش نشده':'نیازمند تنظیم کلید API'
   );
 
   toast('تنظیمات ذخیره شد.');
@@ -385,7 +391,7 @@ function openSettings(){
  $('testConnection').onclick=async()=>{
   let key=autoMode?AUTO_API_KEY:$('apiKeyInput').value.trim();
   let model=$('modelInput').value.trim()||'gpt-4o-mini';
-  let baseURL=$('baseURLInput').value.trim().replace(/\\+$/,'')||DEFAULT_BASE_URL;
+  let baseURL=$('baseURLInput').value.trim().replace(/\/+$/,'')||DEFAULT_BASE_URL;
 
   let b=$('testConnection');
   let out=$('testResult');
@@ -462,10 +468,10 @@ async function sendMessage(){
 
  if(!text||busy)return;
 
- const activeAPIKey=autoMode?AUTO_API_KEY:(settings.apiKey||'');
- if(!activeAPIKey){
-  toast('برای شروع، ابتدا کلید API را در تنظیمات پیشرفته وارد کن.');
-  openSettings();
+ const cfg=activeConfig();
+ const activeAPIKey=cfg.apiKey;
+ if(!activeAPIKey||activeAPIKey==='PASTE_NEW_API_KEY_HERE'){
+  toast('در کد، کلید API جدید را جایگزین عبارت PASTE_NEW_API_KEY_HERE کن.');
   return;
  }
 
@@ -477,14 +483,6 @@ async function sendMessage(){
   return;
  }
 
- q.count++;
-
- try{
-  localStorage.setItem(QUOTA_KEY,JSON.stringify(q));
- }catch(e){
-  toast('ذخیره سهمیه روزانه امکان‌پذیر نیست.');
-  return;
- }
 
  history.push({
   role:'user',
@@ -516,7 +514,7 @@ async function sendMessage(){
    }))
   ];
 
-  let r=await fetch((settings.baseURL||DEFAULT_BASE_URL)+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+activeAPIKey},body:JSON.stringify({model:settings.model||'gpt-4o-mini',messages,max_tokens:8192,temperature:0.75})});
+  let r=await fetch(normalizeBaseURL(cfg.baseURL)+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+activeAPIKey},body:JSON.stringify({model:cfg.model,messages,max_tokens:8192,temperature:0.75})});
 
   let data=await r.json().catch(()=>({}));
 
@@ -539,6 +537,8 @@ async function sendMessage(){
    content:answer.trim()
   });
 
+  q.count++;
+  try{localStorage.setItem(QUOTA_KEY,JSON.stringify(q));}catch(e){toast('پاسخ دریافت شد، اما سهمیه ذخیره نشد.');}
   saveHistory();
 
   setConnection(true,'اتصال برقرار است');
@@ -577,7 +577,8 @@ function newChat(){if(busy)return;createChat(true);$('prompt').focus();}
 
 /* رویدادهای اصلی */
 $('send').onclick=sendMessage;
- $('autoModeToggle').onclick=()=>{autoMode=!autoMode;$('autoModeToggle').textContent=autoMode?'🔘 حالت فعال':'حالت غیرفعال';$('autoModeToggle').classList.toggle('active',autoMode);toast(autoMode?'حالت خودکار فعال شد.':'حالت خودکار غیرفعال شد.');};
+ $('autoModeToggle').textContent=autoMode?'⚡ حالت فعال':'حالت غیرفعال';$('autoModeToggle').classList.toggle('active',autoMode);
+ $('autoModeToggle').onclick=()=>{autoMode=!autoMode;try{localStorage.setItem(AUTO_MODE_KEY,String(autoMode));}catch(e){}$('autoModeToggle').textContent=autoMode?'⚡ حالت فعال':'حالت غیرفعال';$('autoModeToggle').classList.toggle('active',autoMode);toast(autoMode?'حالت خودکار فعال شد.':'حالت خودکار غیرفعال شد.');};
 
 $('prompt').addEventListener('keydown',e=>{
  if(e.key==='Enter'&&!e.shiftKey){
@@ -611,7 +612,7 @@ updateQuota();
 setConnection(
  !!settings.apiKey,
  settings.apiKey
-  ?'کلید API ذخیره شده؛ آماده اتصال'
+  ?'کلید تنظیم شده؛ اتصال آزمایش نشده'
   :'نیازمند تنظیم کلید API'
 );
 
