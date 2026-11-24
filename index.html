@@ -119,12 +119,12 @@ const $=id=>document.getElementById(id);
 const welcomeHTML=$('welcome').outerHTML;
 
 const DEFAULT_BASE_URL='https://api.gapgpt.app/v1';
-const AUTO_API_KEY='sk-sPtuSPQxumGrJ1rGOsILUyleifH93qni7FLNfhMORmniUSHZ'; // پس از تعویض کلید افشاشده، کلید جدید را اینجا وارد کنید
+const AUTO_API_KEY='sk-sPtuSPQxumGrJ1rGOsILUyleifH93qni7FLNfhMORmniUSHZ'; // کلید API را از تنظیمات وارد کنید؛ کلید داخل فایل HTML قرار نمی‌گیرد
 const STORE_KEY='flow_ai_settings_v1', CHAT_KEY='flow_ai_chat_v1', QUOTA_KEY='flow_ai_quota_v1';
 
-let settings={apiKey:AUTO_API_KEY,model:'gpt-4o-mini',baseURL:DEFAULT_BASE_URL},history=[],busy=false,chats=[],currentChatId=null,autoMode=true;
+let settings={apiKey:'',model:'gpt-4o-mini',baseURL:DEFAULT_BASE_URL},history=[],busy=false,chats=[],currentChatId=null,autoMode=true;
 const AUTO_MODEL='gpt-4o-mini', AUTO_BASE_URL=DEFAULT_BASE_URL, AUTO_MODE_KEY='flow_ai_auto_mode_v1';
-function activeConfig(){return autoMode?{apiKey:AUTO_API_KEY,model:AUTO_MODEL,baseURL:AUTO_BASE_URL}:{apiKey:settings.apiKey||'',model:settings.model||'gpt-4o-mini',baseURL:settings.baseURL||DEFAULT_BASE_URL};}
+function activeConfig(){return autoMode?{apiKey:settings.apiKey||AUTO_API_KEY,model:AUTO_MODEL,baseURL:AUTO_BASE_URL}:{apiKey:settings.apiKey||'',model:settings.model||'gpt-4o-mini',baseURL:settings.baseURL||DEFAULT_BASE_URL};}
 function normalizeBaseURL(url){return String(url||DEFAULT_BASE_URL).trim().replace(/\/+$/,'');}
 
 const today=()=>{
@@ -144,7 +144,7 @@ function load(){
   settings={apiKey:'',model:'gpt-4o-mini'};
  }
 
- if(!settings.apiKey)settings.apiKey=AUTO_API_KEY;
+ if(!settings.apiKey)settings.apiKey='';
  if(typeof settings.apiKey!=='string')settings.apiKey='';
  if(typeof settings.model!=='string'||!settings.model.trim())settings.model='gpt-4o-mini';
 
@@ -343,7 +343,7 @@ function openSettings(){
    <div class="field">
     <label>کلید API</label>
     <input id="apiKeyInput" type="password" autocomplete="off" placeholder="کلید API خود را وارد کن" value="${escapeHTML(settings.apiKey)}">
-    <small>کلید در مرورگر ذخیره می‌شود و در سایت عمومی قابل مشاهده/استخراج است؛ کلید حساس را در اینجا وارد نکن.</small>
+    <small>کلید در مرورگر ذخیره می‌شود و در سایت عمومی قابل استخراج است. از کلید تازه و غیر افشاشده استفاده کن؛ برای سایت عمومی، اتصال سروری امن توصیه می‌شود.</small>
    </div>
 
    <div class="field">
@@ -382,22 +382,22 @@ function openSettings(){
 
   setConnection(
    !!settings.apiKey,
-   settings.apiKey?'کلید تنظیم شده؛ اتصال آزمایش نشده':'نیازمند تنظیم کلید API'
+   (settings.apiKey&&settings.apiKey!=='')?'کلید تنظیم شده؛ اتصال آزمایش نشده':'نیازمند تنظیم کلید API'
   );
 
   toast('تنظیمات ذخیره شد.');
  };
 
  $('testConnection').onclick=async()=>{
-  let key=autoMode?AUTO_API_KEY:$('apiKeyInput').value.trim();
-  let model=$('modelInput').value.trim()||'gpt-4o-mini';
-  let baseURL=$('baseURLInput').value.trim().replace(/\/+$/,'')||DEFAULT_BASE_URL;
+  let key=autoMode?(settings.apiKey||AUTO_API_KEY):$('apiKeyInput').value.trim();
+  let model=autoMode?AUTO_MODEL:($('modelInput').value.trim()||'gpt-4o-mini');
+  let baseURL=autoMode?AUTO_BASE_URL:normalizeBaseURL($('baseURLInput').value);
 
   let b=$('testConnection');
   let out=$('testResult');
 
-  if(!key){
-   out.textContent='ابتدا کلید API را وارد کن.';
+  if(!key||key==='PASTE_NEW_API_KEY_HERE'){
+   out.textContent='ابتدا کلید API معتبر را در تنظیمات وارد و ذخیره کن.';
    out.style.color='#ff9eae';
    return;
   }
@@ -446,7 +446,7 @@ function openSettings(){
 
   }catch(e){
 
-   out.textContent='✕ اتصال برقرار نشد: '+e.message;
+   out.textContent='✕ اتصال برقرار نشد: '+(e.name==='TimeoutError'?'زمان پاسخ سرویس تمام شد (Timeout).':e.message)+'؛ ممکن است کلید، مدل، آدرس API یا محدودیت CORS مشکل داشته باشد.';
    out.style.color='#ff9eae';
 
    setConnection(false,'اتصال برقرار نشد');
@@ -470,8 +470,8 @@ async function sendMessage(){
 
  const cfg=activeConfig();
  const activeAPIKey=cfg.apiKey;
- if(!activeAPIKey||activeAPIKey==='sk-sPtuSPQxumGrJ1rGOsILUyleifH93qni7FLNfhMORmniUSHZ'){
-  toast('در کد، کلید API جدید را جایگزین عبارت sk-sPtuSPQxumGrJ1rGOsILUyleifH93qni7FLNfhMORmniUSHZ کن.');
+ if(!activeAPIKey||activeAPIKey==='PASTE_NEW_API_KEY_HERE'){
+  toast('ابتدا کلید API را در تنظیمات وارد و ذخیره کن.');
   return;
  }
 
@@ -514,7 +514,7 @@ async function sendMessage(){
    }))
   ];
 
-  let r=await fetch(normalizeBaseURL(cfg.baseURL)+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+activeAPIKey},body:JSON.stringify({model:cfg.model,messages,max_tokens:8192,temperature:0.75})});
+  let r=await fetch(normalizeBaseURL(cfg.baseURL)+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+activeAPIKey},body:JSON.stringify({model:cfg.model,messages,max_tokens:8192,temperature:0.75}),signal:(typeof AbortSignal.timeout==='function'?AbortSignal.timeout(60000):undefined)});
 
   let data=await r.json().catch(()=>({}));
 
@@ -549,7 +549,7 @@ async function sendMessage(){
    role:'assistant',
    content:
     '⚠️ در دریافت پاسخ خطایی رخ داد:\n'+
-    (e.message||'خطای ناشناخته')+
+    (e.name==='TimeoutError'?'زمان پاسخ سرویس تمام شد (Timeout).':e.message||'خطای ناشناخته')+
     '\n\nکلید API، شناسه مدل و دسترسی سرویس را در تنظیمات پیشرفته بررسی کن.'
   });
 
