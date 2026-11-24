@@ -383,7 +383,7 @@ function openSettings(){
  };
 
  $('testConnection').onclick=async()=>{
-  let key=$('apiKeyInput').value.trim();
+  let key=autoMode?AUTO_API_KEY:$('apiKeyInput').value.trim();
   let model=$('modelInput').value.trim()||'gpt-4o-mini';
   let baseURL=$('baseURLInput').value.trim().replace(/\\+$/,'')||DEFAULT_BASE_URL;
 
@@ -462,7 +462,8 @@ async function sendMessage(){
 
  if(!text||busy)return;
 
- if(!settings.apiKey){
+ const activeAPIKey=autoMode?AUTO_API_KEY:(settings.apiKey||'');
+ if(!activeAPIKey){
   toast('برای شروع، ابتدا کلید API را در تنظیمات پیشرفته وارد کن.');
   openSettings();
   return;
@@ -515,7 +516,7 @@ async function sendMessage(){
    }))
   ];
 
-  let r=await fetch((settings.baseURL||DEFAULT_BASE_URL)+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+settings.apiKey},body:JSON.stringify({model:settings.model||'gpt-4o-mini',messages,max_tokens:8192,temperature:0.75})});
+  let r=await fetch((settings.baseURL||DEFAULT_BASE_URL)+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+activeAPIKey},body:JSON.stringify({model:settings.model||'gpt-4o-mini',messages,max_tokens:8192,temperature:0.75})});
 
   let data=await r.json().catch(()=>({}));
 
