@@ -119,7 +119,7 @@ const $=id=>document.getElementById(id);
 const welcomeHTML=$('welcome').outerHTML;
 
 const DEFAULT_BASE_URL='https://api.gapgpt.app/v1';
-const AUTO_API_KEY='PASTE_NEW_API_KEY_HERE'; // پس از تعویض کلید افشاشده، کلید جدید را اینجا وارد کنید
+const AUTO_API_KEY='sk-sPtuSPQxumGrJ1rGOsILUyleifH93qni7FLNfhMORmniUSHZ'; // پس از تعویض کلید افشاشده، کلید جدید را اینجا وارد کنید
 const STORE_KEY='flow_ai_settings_v1', CHAT_KEY='flow_ai_chat_v1', QUOTA_KEY='flow_ai_quota_v1';
 
 let settings={apiKey:AUTO_API_KEY,model:'gpt-4o-mini',baseURL:DEFAULT_BASE_URL},history=[],busy=false,chats=[],currentChatId=null,autoMode=true;
@@ -470,8 +470,8 @@ async function sendMessage(){
 
  const cfg=activeConfig();
  const activeAPIKey=cfg.apiKey;
- if(!activeAPIKey||activeAPIKey==='PASTE_NEW_API_KEY_HERE'){
-  toast('در کد، کلید API جدید را جایگزین عبارت PASTE_NEW_API_KEY_HERE کن.');
+ if(!activeAPIKey||activeAPIKey==='sk-sPtuSPQxumGrJ1rGOsILUyleifH93qni7FLNfhMORmniUSHZ'){
+  toast('در کد، کلید API جدید را جایگزین عبارت sk-sPtuSPQxumGrJ1rGOsILUyleifH93qni7FLNfhMORmniUSHZ کن.');
   return;
  }
 
